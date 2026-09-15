@@ -1,0 +1,1204 @@
+# Universal Machine Data Platform — Project Guideline
+
+## 1. Project Objective
+
+Build a **universal machine data acquisition and analytics system** that can be deployed to different manufacturing machines and PLC platforms without rewriting the application for every machine.
+
+The core principle is:
+
+> **Configure once → collect machine data continuously → store meaningful machine events → visualize and analyze.**
+
+The project should reuse existing working software wherever possible instead of rebuilding equivalent functionality from scratch.
+
+The system should separate:
+
+1. **Machine configuration**
+2. **PLC data acquisition**
+3. **Historical data storage**
+4. **Visualization and analytics**
+
+---
+
+# 2. Current Starting Point
+
+The project is **not starting completely from zero**.
+
+There are currently three major components:
+
+| Component                         | Current State                 | Direction            |
+| --------------------------------- | ----------------------------- | -------------------- |
+| JSON Generator / Tag Configurator | **Does not exist yet**        | Build from scratch   |
+| PLC Polling / Collector           | **Existing .NET prototype**   | Reuse and modify     |
+| Dashboard                         | **Existing HAE_DB_Dashboard** | Reuse and generalize |
+
+The existing PLC polling project contains working concepts for:
+
+* PLC communication
+* `libplctag`
+* PLC tag configuration
+* BOOL / DINT / REAL values
+* polling
+* connection handling
+* state determination
+* SQLite / Entity Framework Core
+* history storage
+* machine configuration
+* API endpoints
+* simulated polling
+
+Therefore:
+
+> **Do not rebuild the PLC collector from scratch. Extract and generalize the reusable architecture from the existing implementation.**
+
+The existing dashboard is also a starting point rather than something that should immediately be rewritten.
+
+---
+
+# 3. Existing Architecture
+
+The current assets should be viewed as:
+
+```text
+                    EXISTING
+                 ┌───────────────┐
+                 │ PLC Poller    │
+                 │ .NET          │
+                 │ libplctag     │
+                 └───────┬───────┘
+                         │
+                         ▼
+                    SQLite DB
+                         │
+                         ▼
+                 ┌───────────────┐
+                 │ HAE Dashboard │
+                 └───────────────┘
+```
+
+The new architecture adds the missing configuration layer:
+
+```text
+                    NEW
+              ┌─────────────────┐
+              │ JSON Generator  │
+              │ Tag Configurator│
+              └────────┬────────┘
+                       │
+                       ▼
+                machine_config.json
+                       │
+                       ▼
+                  EXISTING
+              ┌─────────────────┐
+              │ PLC Collector   │
+              │ .NET/libplctag  │
+              └────────┬────────┘
+                       │
+                       ▼
+                  SQLite DB
+                       │
+                       ▼
+                  EXISTING
+              ┌─────────────────┐
+              │ HAE Dashboard   │
+              └─────────────────┘
+```
+
+---
+
+# 4. Target Architecture
+
+The complete system should eventually become:
+
+```text
+                    SETUP
+                      │
+                      ▼
+          ┌──────────────────────┐
+          │ PLC Tag File / L5K   │
+          └──────────┬───────────┘
+                     │
+                     ▼
+          ┌──────────────────────┐
+          │ Tag Configurator     │
+          │ Webpage              │
+          │                      │
+          │ Customer selects     │
+          │ PLC tags and maps    │
+          │ them to standard     │
+          │ machine signals      │
+          └──────────┬───────────┘
+                     │
+                     ▼
+          ┌──────────────────────┐
+          │ machine_config.json  │
+          │                      │
+          │ Universal machine   │
+          │ configuration        │
+          └──────────┬───────────┘
+                     │
+                     │
+                    RUN
+                     │
+                     ▼
+          ┌──────────────────────┐
+          │ PLC Data Collector   │
+          │                      │
+          │ Reads JSON           │
+          │ Connects to PLC      │
+          │ Reads configured     │
+          │ tags                 │
+          │ Detects events       │
+          └──────────┬───────────┘
+                     │
+                     ▼
+          ┌──────────────────────┐
+          │ Machine Database     │
+          │                      │
+          │ State events         │
+          │ Fault events         │
+          │ Production events    │
+          │ Tag values           │
+          │ Timestamps           │
+          └──────────┬───────────┘
+                     │
+                     ▼
+          ┌──────────────────────┐
+          │ Analytics Dashboard  │
+          │                      │
+          │ OEE                  │
+          │ Production           │
+          │ Downtime             │
+          │ Fault analysis       │
+          │ Micro-stops          │
+          └──────────────────────┘
+```
+
+---
+
+# 5. Component 1 — JSON Generator / PLC Tag Configurator
+
+This component is **greenfield**.
+
+There is currently no completed JSON Generator.
+
+The first version should be a web application.
+
+## Input
+
+The user provides PLC information through:
+
+* Rockwell `.L5K`
+* PLC tag CSV
+* Future vendor-specific formats
+* Generic CSV fallback
+
+The first implementation should focus on **Rockwell L5K / CSV**.
+
+## Process
+
+```text
+Upload
+   ↓
+Parse
+   ↓
+Display available PLC tags
+   ↓
+Customer searches/selects tags
+   ↓
+Map tags to universal machine signals
+   ↓
+Generate JSON
+   ↓
+Download / save configuration
+```
+
+The customer—not AI—makes the final tag selection.
+
+Example:
+
+| Universal Signal | Customer PLC Tag                      |
+| ---------------- | ------------------------------------- |
+| Running State    | `St_0_Master_Ctrl.MachineRun`         |
+| Stop State       | `St_0_Master_Ctrl.MachineStop`        |
+| Fault State      | `St_0_Master_Ctrl.Faulted`            |
+| Cycle Complete   | `St_0_Master_Ctrl.CycleComplete`      |
+| Production Count | `St_0_Master_Ctrl.CNT_PartOutProcess` |
+| Good Count       | `St_0_Master_Ctrl.GoodCount`          |
+| Reject Count     | `St_0_Master_Ctrl.RejectCount`        |
+| Auto Mode        | `St_0_Master_Ctrl.AutoMode`           |
+
+The exact universal signal list will evolve as the collector and dashboard are generalized.
+
+---
+
+# 6. Universal JSON
+
+The generated JSON is **not specifically for the dashboard**.
+
+It is the universal contract between the customer's machine and our software ecosystem.
+
+Conceptually:
+
+```json
+{
+  "schema_version": "1.0",
+
+  "machine": {
+    "name": "Machine_001",
+
+    "plc": {
+      "vendor": "rockwell",
+      "ip": "192.168.1.10"
+    }
+  },
+
+  "signals": {
+
+    "running_state": {
+      "tag": "St_0_Master_Ctrl.MachineRun",
+      "data_type": "BOOL"
+    },
+
+    "stop_state": {
+      "tag": "St_0_Master_Ctrl.MachineStop",
+      "data_type": "BOOL"
+    },
+
+    "fault_state": {
+      "tag": "St_0_Master_Ctrl.Faulted",
+      "data_type": "BOOL"
+    },
+
+    "production_count": {
+      "tag": "St_0_Master_Ctrl.CNT_PartOutProcess",
+      "data_type": "DINT"
+    }
+  }
+}
+```
+
+The exact schema is **not finalized** and should be designed around the actual requirements of the existing PLC collector.
+
+## Design principle
+
+The JSON should describe:
+
+> **What machine data exists and where to retrieve it.**
+
+It should not contain OEE calculations.
+
+---
+
+# 7. JSON Generator — MVP Scope
+
+The first version should NOT attempt to automatically understand an entire PLC program.
+
+MVP functionality:
+
+```text
+L5K / CSV
+    ↓
+Extract tags
+    ↓
+Search / filter tags
+    ↓
+Select tag
+    ↓
+Assign universal signal
+    ↓
+Validate mapping
+    ↓
+Generate JSON
+```
+
+The configurator should prioritize:
+
+* Reliable parsing
+* Fast tag search
+* Clear mapping interface
+* Validation
+* JSON generation
+* JSON download
+* JSON restore
+
+AI-assisted tag recommendations can be considered later.
+
+---
+
+# 8. Browser Persistence
+
+The configurator should provide two ways to retain configuration.
+
+## Download
+
+The user can download:
+
+```text
+machine_config.json
+```
+
+This provides a permanent copy.
+
+## Browser persistence
+
+The webpage should also save the configuration locally.
+
+Expected behavior:
+
+```text
+First visit
+    ↓
+Upload PLC file
+    ↓
+Map tags
+    ↓
+Generate JSON
+    ↓
+Save locally
+
+Next visit
+    ↓
+Configuration detected
+    ↓
+Restore machine
+    ↓
+No need to upload PLC file again
+```
+
+Persistent browser storage should be used rather than relying on ordinary browser cache.
+
+---
+
+# 9. Component 2 — Existing PLC Data Collector
+
+The PLC collector already exists as a working prototype.
+
+The goal is to **adapt it to the universal JSON architecture**, not replace it.
+
+Current concepts include:
+
+* .NET application
+* `libplctag`
+* PLC tag definitions
+* polling
+* state determination
+* SQLite / EF Core
+* historical records
+* connection handling
+* simulated polling
+
+The existing collector should be inspected and modified incrementally.
+
+## Target flow
+
+```text
+machine_config.json
+        ↓
+Collector loads configuration
+        ↓
+Determine PLC vendor/protocol
+        ↓
+Create configured PLC tags
+        ↓
+Connect to PLC
+        ↓
+Read configured tags
+        ↓
+Timestamp observations
+        ↓
+Detect meaningful state changes
+        ↓
+Store events
+```
+
+Rockwell Ethernet/IP should be the first supported PLC communication path.
+
+---
+
+# 10. Collector Design Principle
+
+The collector should be **configuration-driven**.
+
+Currently, PLC tag information may be directly represented in the existing application configuration.
+
+The target architecture is:
+
+```text
+machine_config.json
+        ↓
+Generic collector logic
+        ↓
+PLC driver
+        ↓
+Configured tags
+```
+
+The collector should not contain customer-specific tag names hard-coded into application logic.
+
+For example, avoid:
+
+```text
+if tag == "St_0_Master_Ctrl.MachineRun"
+```
+
+Instead:
+
+```text
+running_state.tag
+```
+
+should come from the JSON configuration.
+
+---
+
+# 11. Raw Machine Events
+
+The collector should preserve the **actual machine events** rather than only calculating OEE.
+
+Example:
+
+```text
+10:00:00.000   RUN
+10:00:12.000   STOP
+10:00:15.000   FAULT
+10:00:19.000   STOP
+10:00:23.000   RUN
+10:00:51.000   STOP
+10:00:53.000   RUN
+```
+
+Database concept:
+
+| Timestamp    | State   | Duration |
+| ------------ | ------- | -------: |
+| 10:00:00.000 | RUNNING |     12 s |
+| 10:00:12.000 | STOP    |      3 s |
+| 10:00:15.000 | FAULT   |      4 s |
+| 10:00:19.000 | STOP    |      4 s |
+| 10:00:23.000 | RUNNING |     28 s |
+| 10:00:51.000 | STOP    |      2 s |
+| 10:00:53.000 | RUNNING |        — |
+
+The collector should primarily **log state changes/events rather than repeatedly storing unchanged state values**.
+
+Example:
+
+```text
+PLC:
+RUN
+RUN
+RUN
+RUN
+STOP
+STOP
+STOP
+RUN
+RUN
+```
+
+Database:
+
+```text
+RUN
+STOP
+RUN
+```
+
+The duration is calculated from timestamps.
+
+---
+
+# 12. Event Detection and Polling
+
+This is an important MVP design constraint.
+
+The collector should focus on **meaningful machine-state changes**, not attempt to capture every transient PLC signal.
+
+## MVP target
+
+> **Events or machine-state changes lasting approximately 1 second or longer are the target for reliable capture.**
+
+Polling should use a reasonable interval that balances:
+
+* Event detection
+* PLC CPU / communication load
+* Network traffic
+* Collector CPU usage
+
+The system should **not use unnecessarily aggressive polling solely to capture sub-second events**.
+
+Frequent polling can increase communication load on customer PLCs and should therefore be avoided unless there is a demonstrated requirement.
+
+---
+
+# 13. State-Change Detection
+
+The collector should compare the current observed machine state with the previously observed state.
+
+Example:
+
+```text
+PLC:
+RUN
+RUN
+RUN
+STOP
+STOP
+STOP
+RUN
+RUN
+```
+
+Collector:
+
+```text
+RUN
+  ↓
+STOP
+  ↓
+RUN
+```
+
+Database:
+
+```text
+10:00:00.000   RUN
+10:05:32.000   STOP
+10:05:40.000   RUN
+```
+
+STOP duration:
+
+```text
+8 seconds
+```
+
+Unchanged states should not create repeated database events.
+
+---
+
+# 14. Important Distinction — Signal vs Machine Event
+
+A short-lived PLC signal does not necessarily represent a real machine stop or fault.
+
+For example:
+
+```text
+Sensor:
+ON → OFF → ON
+       300 ms
+```
+
+does not automatically mean:
+
+```text
+Machine:
+RUN → STOP → RUN
+```
+
+The system should distinguish between:
+
+| Concept              | Meaning                                         |
+| -------------------- | ----------------------------------------------- |
+| Raw tag change       | A PLC value changed                             |
+| Machine-state change | A standardized machine state changed            |
+| Fault event          | A configured fault condition occurred           |
+| Downtime             | Machine was actually unavailable for production |
+
+The interpretation depends on how the customer's PLC logic defines the configured signals.
+
+---
+
+# 15. Fault Logging Principle
+
+The system should not assume that every temporary PLC fault signal represents meaningful downtime.
+
+For example:
+
+```text
+FAULT
+ ↓
+300 ms
+ ↓
+RESET
+```
+
+may not represent a meaningful machine downtime event.
+
+For the MVP:
+
+> **Only meaningful state/event changes should be persisted as machine events.**
+
+For the current stage, events shorter than approximately **1 second are not a primary requirement**.
+
+This is an engineering tradeoff between useful production analytics and excessive PLC polling.
+
+---
+
+# 16. Sub-Second Events
+
+The MVP may miss some events shorter than the polling interval.
+
+This is an accepted limitation.
+
+Future versions may evaluate:
+
+* Optimized PLC polling
+* Batch tag reads
+* PLC-side counters/latches
+* Edge/event detection
+* PLC-side timestamps
+* Sequence/event counters
+* More sophisticated event logging
+
+These should only be introduced if actual customer requirements justify the additional PLC communication and implementation complexity.
+
+Do not optimize for sub-second capture before proving that customers need it.
+
+---
+
+# 17. Database
+
+The database is the **historical record of what happened**.
+
+It should remain conceptually separate from the JSON configuration.
+
+### JSON
+
+```text
+"What should I read?"
+```
+
+### Database
+
+```text
+"What did the machine actually do?"
+```
+
+Potential data categories:
+
+```text
+machine
+├── configuration metadata
+│
+├── state_events
+│
+├── fault_events
+│
+├── production_events
+│
+├── tag_samples
+│
+└── system_events
+```
+
+The exact database architecture should be based on the existing collector implementation and actual analytics requirements.
+
+SQLite is appropriate for the initial local collector if it satisfies the required workload.
+
+---
+
+# 18. Raw Data vs Analytics
+
+The collector should preserve sufficient information so that analytics can change later.
+
+Preferred architecture:
+
+```text
+PLC
+ ↓
+Raw observation / event
+ ↓
+Database
+ ↓
+Analytics
+```
+
+Avoid:
+
+```text
+PLC
+ ↓
+OEE calculation
+ ↓
+Discard raw information
+```
+
+This allows future analytics to answer:
+
+> Why was availability low?
+
+> Which faults caused the most downtime?
+
+> How many stops lasted less than 5 seconds?
+
+> Which machine has the most micro-stops?
+
+> What happened immediately before a fault?
+
+> How much production was lost because of short stops?
+
+---
+
+# 19. Component 3 — Existing Dashboard
+
+The existing `HAE_DB_Dashboard` should be treated as the starting point for the analytics layer.
+
+Do not rebuild the dashboard before the collector/data model is understood.
+
+Initial objective:
+
+```text
+Existing Collector
+       ↓
+Existing SQLite DB
+       ↓
+Existing HAE Dashboard
+```
+
+Then progressively generalize it:
+
+```text
+Universal Collector
+       ↓
+Standard Database
+       ↓
+Generalized Dashboard
+```
+
+The dashboard should eventually consume standardized concepts rather than customer-specific PLC tag names.
+
+Examples:
+
+```text
+RUNNING
+STOP
+FAULT
+CYCLE
+PRODUCTION
+GOOD
+REJECT
+```
+
+---
+
+# 20. Dashboard Analytics
+
+The dashboard should eventually display:
+
+* Production
+* Running time
+* Stop time
+* Fault time
+* Number of stops
+* Stop duration
+* Micro-stops
+* Fault frequency
+* Cycle time
+* Availability
+* Performance
+* Quality
+* OEE
+
+The analytics should be calculated from historical machine events and production data.
+
+The dashboard should not require knowledge of the original PLC tag naming convention.
+
+---
+
+# 21. Three-Component Product Architecture
+
+The final solution can be viewed as three products:
+
+| Component               | Responsibility                                     |
+| ----------------------- | -------------------------------------------------- |
+| **Tag Configurator**    | PLC export → Universal machine configuration       |
+| **PLC Collector**       | Universal configuration → Live PLC data → Database |
+| **Analytics Dashboard** | Database → Production/OEE analytics                |
+
+The interfaces between these components should be standardized.
+
+```text
+          ┌──────────────────┐
+          │ Tag Configurator │
+          └────────┬─────────┘
+                   │
+                   │ machine_config.json
+                   ▼
+          ┌──────────────────┐
+          │  PLC Collector   │
+          └────────┬─────────┘
+                   │
+                   │ database
+                   ▼
+          ┌──────────────────┐
+          │    Dashboard     │
+          └──────────────────┘
+```
+
+---
+
+# 22. Multi-Vendor Strategy
+
+The architecture should avoid creating separate dashboards for each PLC manufacturer.
+
+Instead:
+
+```text
+Rockwell L5K / CSV ─────┐
+Siemens export ─────────┤
+Omron export ───────────┤
+Generic CSV ────────────┤
+                        ▼
+                 Universal Tag Model
+                        │
+                        ▼
+                 machine_config.json
+                        │
+                        ▼
+                  PLC Collector
+                        │
+                        ▼
+                 Standard Database
+                        │
+                        ▼
+                    Dashboard
+```
+
+Vendor-specific logic should be isolated at:
+
+1. PLC file importers
+2. PLC communication drivers
+
+The universal configuration and analytics layers should remain vendor-independent.
+
+---
+
+# 23. MVP Development Order
+
+The development order should follow the existing assets.
+
+## Phase 0 — Understand Existing Systems
+
+Before significant changes:
+
+* Inspect existing PLC collector
+* Understand current configuration format
+* Understand current polling mechanism
+* Understand current database schema
+* Understand current event/state logic
+* Inspect existing dashboard
+* Identify which components can be reused directly
+
+Do not rewrite working functionality without a specific reason.
+
+---
+
+## Phase 1 — JSON Generator
+
+Build from scratch:
+
+* Rockwell L5K parser
+* Rockwell CSV parser
+* Universal tag model
+* Searchable tag list
+* Manual signal mapping
+* Mapping validation
+* JSON generation
+* JSON download
+* Browser persistence
+* JSON restore
+
+**No requirement to redesign the collector during this phase.**
+
+The output should eventually be consumable by the existing collector.
+
+---
+
+## Phase 2 — Universal JSON Integration
+
+Define and implement the actual configuration contract.
+
+Target:
+
+```text
+L5K
+ ↓
+JSON Generator
+ ↓
+machine_config.json
+ ↓
+Existing Collector
+```
+
+The JSON schema should be driven by what the collector actually needs.
+
+Avoid adding unnecessary configuration fields.
+
+---
+
+## Phase 3 — Generalize Existing Collector
+
+Modify the existing collector so it:
+
+* Loads machine configuration from JSON
+* Creates PLC tags from configuration
+* Uses standardized signal names
+* Connects to the configured PLC
+* Reads configured tags
+* Detects meaningful state changes
+* Stores events
+* Handles connection failures
+* Logs useful errors
+
+Do not rewrite working PLC communication functionality unless required.
+
+---
+
+## Phase 4 — Verify Event Capture
+
+Test the complete path against real or simulated machine behavior:
+
+```text
+PLC
+ ↓
+Collector
+ ↓
+Event detection
+ ↓
+SQLite
+```
+
+Verify:
+
+* RUN transitions
+* STOP transitions
+* FAULT transitions
+* Production counts
+* State duration
+* Connection loss
+* PLC restart/reconnect
+* Short transient signals
+* Duplicate event prevention
+
+The priority is **correct event behavior**, not feature count.
+
+---
+
+## Phase 5 — Dashboard Integration
+
+Connect:
+
+```text
+Collector Database
+       ↓
+Existing HAE Dashboard
+```
+
+Verify:
+
+```text
+PLC state
+    ↓
+Collector
+    ↓
+Database
+    ↓
+Dashboard
+```
+
+against actual machine behavior.
+
+Only after this works should the dashboard be generalized for arbitrary machines.
+
+---
+
+## Phase 6 — Expand
+
+After the Rockwell path is proven:
+
+```text
+Rockwell
+   ↓
+Siemens
+   ↓
+Omron
+   ↓
+Other PLCs
+```
+
+while maintaining the same:
+
+```text
+Universal Configuration
+        ↓
+Standard Collector Interface
+        ↓
+Standard Database
+        ↓
+Standard Dashboard
+```
+
+---
+
+# 24. Development Rules
+
+## Reuse Before Rebuild
+
+Existing working code should be reused where practical.
+
+Before implementing a new feature:
+
+> **Check whether the existing collector or dashboard already solves part of the problem.**
+
+---
+
+## Minimal Changes
+
+When modifying existing code:
+
+* Change only what is required
+* Avoid unnecessary refactoring
+* Avoid renaming working components without reason
+* Avoid changing behavior unrelated to the current task
+* Preserve working PLC communication logic where possible
+
+---
+
+## Validate Against Reality
+
+The system is intended for real industrial machines.
+
+Do not optimize based solely on theoretical architecture.
+
+Use actual machine behavior to determine:
+
+* Polling requirements
+* Event duration requirements
+* Database requirements
+* Dashboard requirements
+* Customer value
+
+---
+
+# 25. Critical Design Principle — Capture First, Calculate Later
+
+The collector should preserve useful machine history.
+
+The system should not make irreversible assumptions during data acquisition.
+
+Preferred:
+
+```text
+PLC
+ ↓
+Observation
+ ↓
+Event detection
+ ↓
+Historical database
+ ↓
+Analytics
+```
+
+Analytics can then evolve independently.
+
+---
+
+# 26. Product Philosophy
+
+The project should **not** initially attempt to become:
+
+* A complete MES
+* An AI PLC programmer
+* Automatic PLC code modification software
+* An all-vendor PLC engineering suite
+* Fully automatic tag selection
+* A high-frequency PLC data historian
+
+The initial goal is much more focused:
+
+> **Turn an existing PLC machine into a standardized source of production data with minimal customer engineering work.**
+
+The core value chain is:
+
+```text
+CUSTOMER'S EXISTING PLC
+          ↓
+    Tag Configuration
+          ↓
+    Universal JSON
+          ↓
+     Existing/Generalized
+       PLC Collector
+          ↓
+    State/Event Detection
+          ↓
+     Raw Machine Events
+          ↓
+        Database
+          ↓
+     OEE / Analytics
+```
+
+The MVP should favor:
+
+> **Reliable, useful event capture with low machine impact**
+
+over:
+
+> **Capturing every possible PLC transition.**
+
+---
+
+# 27. Current Project Status
+
+Current state:
+
+```text
+[1] JSON Generator        █░░░░  0% — Build from scratch
+
+[2] Universal JSON        █░░░░  0% — Schema not finalized
+
+[3] PLC Collector         █████░  Existing prototype
+
+[4] Event Detection       ███░░  Existing, needs refinement
+
+[5] SQLite History        ████░  Existing
+
+[6] Dashboard             ████░  Existing HAE dashboard
+
+[7] Universalization      █░░░░  Not yet completed
+```
+
+The project should therefore **start with the JSON Generator**, while using the existing PLC collector and dashboard as implementation assets.
+
+---
+
+# 28. Immediate Next Objective
+
+The immediate engineering objective is:
+
+> **Build the first JSON Generator that can take a Rockwell L5K/CSV, expose the available tags, allow the user to map standard machine signals, and produce a configuration that the existing PLC collector can consume.**
+
+Target:
+
+```text
+Rockwell L5K
+      ↓
+JSON Generator
+      ↓
+machine_config.json
+      ↓
+Existing PLC Collector
+      ↓
+Existing SQLite DB
+      ↓
+Existing HAE Dashboard
+```
+
+Once this end-to-end path works, we have the first complete vertical slice of the product.
+
+Only then should we spend significant effort on additional PLC vendors, advanced analytics, cloud architecture, AI-assisted mapping, or SaaS infrastructure.
+
