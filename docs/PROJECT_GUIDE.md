@@ -37,8 +37,8 @@ There are three connected products. They must be built and proven in this order.
 | Product | Responsibility | Starting point |
 | --- | --- | --- |
 | Tag Configurator | Maps customer PLC tags to universal machine signals and exports configuration JSON. | Build from scratch. |
-| PLC Collector | Reads the configuration, polls PLCs, and stores meaningful machine events. | Reuse and generalize the existing .NET prototype. |
-| Analytics Dashboard | Reads the historical database and presents production analytics. | Reuse and generalize HAE_DB_Dashboard. |
+| PLC Collector | Reads the configuration, polls PLCs, and stores meaningful machine events. | New build in C#/.NET + libplctag, using the existing prototype as a design reference. |
+| Analytics Dashboard | Reads the historical database and presents production analytics. | New build, using HAE_DB_Dashboard as a visual/analytics reference. |
 
 ## 3. Immediate Product: Tag Configurator
 
@@ -85,7 +85,7 @@ reject_count
 auto_mode
 ```
 
-The exact set and required fields will be finalized from the existing collector's actual requirements before the collector is modified.
+The exact schema is not finalized. It should be designed for the new collector being built, informed by (not bound to) the existing prototype's schema.
 
 ### Configuration contract
 
@@ -158,9 +158,9 @@ CSS is used for visual styling. It is not an alternative to C# or JavaScript. Py
 
 Before significant changes:
 
-* Inspect the existing C# collector's current configuration, polling, state detection, database schema, APIs, and simulation path.
 * Inspect HAE_DB_Dashboard's input, SQLite assumptions, and analytics calculations.
-* Extract only the parts that can be reused; do not rewrite working PLC communication.
+* Review the existing C# collector and HAE dashboard as design references — polling approach, state-detection logic, DB shape.
+* Treat these as informative, not constraints: the new repo is free to change schema, structure, or approach where it improves the design.
 
 ### Phase 1 — Build the Tag Configurator
 

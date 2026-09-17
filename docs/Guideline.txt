@@ -278,7 +278,7 @@ Conceptually:
 }
 ```
 
-The exact schema is **not finalized** and should be designed around the actual requirements of the existing PLC collector.
++ The exact schema is not finalized. It should be designed for the new collector being built, informed by (not bound to) the existing prototype's schema.
 
 ## Design principle
 
