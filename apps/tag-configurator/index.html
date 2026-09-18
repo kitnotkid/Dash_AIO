@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tag Configurator</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="app-header">
+    <h1>Tag Configurator</h1>
+    <p class="subtitle">PLC export &rarr; universal machine signals &rarr; machine_config.json</p>
+  </header>
+
+  <main class="app-main">
+    <section class="panel import-panel">
+      <h2>1. Import</h2>
+      <input type="file" id="file-input" accept=".l5k,.csv" />
+      <p id="import-status" class="status-text"></p>
+
+      <label class="field">
+        Machine name
+        <input type="text" id="machine-name" placeholder="Machine_001" />
+      </label>
+      <label class="field">
+        PLC IP
+        <input type="text" id="plc-ip" placeholder="192.168.1.10" class="mono" />
+      </label>
+    </section>
+
+    <section class="panel tags-panel">
+      <h2>2. Tags</h2>
+      <input type="search" id="tag-search" placeholder="Search tags..." />
+      <div id="tag-list" class="tag-list"></div>
+    </section>
+
+    <section class="panel mapping-panel">
+      <h2>3. Map signals</h2>
+      <div id="mapping-list" class="mapping-list"></div>
+    </section>
+
+    <section class="panel validation-panel">
+      <h2>4. Validate &amp; export</h2>
+      <ul id="validation-errors" class="validation-errors"></ul>
+      <div class="export-actions">
+        <button id="export-btn" disabled>Download machine_config.json</button>
+        <button id="clear-btn" class="secondary">Clear draft</button>
+      </div>
+    </section>
+  </main>
+
+  <script type="module" src="./js/main.js"></script>
+</body>
+</html>
