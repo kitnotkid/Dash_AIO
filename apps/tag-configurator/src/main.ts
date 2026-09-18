@@ -2,7 +2,7 @@ import type { DraftState, PlcTag, SignalKey, DataType } from "./types.js";
 import { DATA_TYPES } from "./types.js";
 import { parseL5K } from "./parseL5K.js";
 import { parseCsv } from "./parseCsv.js";
-import { UNIVERSAL_SIGNALS, validateMappings } from "./signals.js";
+import { UNIVERSAL_SIGNALS, validateMappings, isTypeMismatch } from "./signals.js";
 import { saveDraft, loadDraft, clearDraft } from "./storage.js";
 import { buildMachineConfig, downloadMachineConfig } from "./exportConfig.js";
 
@@ -41,7 +41,7 @@ function renderTagList(): void {
   tagListEl.innerHTML = filtered
     .map(
       (tag) =>
-        `<div class="tag-row"><span class="mono">${tag.name}</span><span class="tag-type mono">${tag.suggestedType}</span></div>`
+        `<div class="tag-row"><span class="mono">${tag.name}</span><span class="tag-type mono">${tag.suggestedType ?? "—"}</span></div>`
     )
     .join("");
 }
@@ -67,7 +67,7 @@ function renderMappingList(): void {
     const selectedTagName = mapping?.tag ?? "";
     const sourceTag = selectedTagName ? findTag(selectedTagName) : undefined;
     const assignedType = mapping?.assignedType ?? sourceTag?.suggestedType ?? "BOOL";
-    const mismatch = sourceTag && assignedType !== sourceTag.suggestedType;
+    const mismatch = sourceTag && isTypeMismatch(assignedType, sourceTag.suggestedType);
 
     return `
       <div class="mapping-row${mismatch ? " type-mismatch" : ""}" data-signal-key="${signal.key}">
