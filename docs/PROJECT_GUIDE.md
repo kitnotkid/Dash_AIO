@@ -342,6 +342,11 @@ DB, and dashboard requirements.
 drivers) stays isolated at the edges. Universal config and analytics layers stay
 vendor-independent. No new-vendor work before the Rockwell path is proven.
 
+**No git commit, no git push.** Claude Code only edits files in the working tree.
+Never run `git commit` or `git push` in this repo unless the user explicitly asks
+in that exact session. Report what was changed/added/needs updating — the user
+commits and pushes themselves.
+
 ---
 
 ## 15. Product Philosophy — What This Is Not
