@@ -38,7 +38,7 @@ export function validateMappings(
 
 export function isTypeMismatch(
   assignedType: DataType,
-  suggestedType: DataType
+  suggestedType: DataType | null
 ): boolean {
-  return assignedType !== suggestedType;
+  return suggestedType !== null && assignedType !== suggestedType;
 }

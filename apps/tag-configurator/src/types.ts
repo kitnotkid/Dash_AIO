@@ -4,7 +4,7 @@ export const DATA_TYPES: DataType[] = ["BOOL", "DINT", "REAL"];
 
 export type PlcTag = {
   name: string;
-  suggestedType: DataType;
+  suggestedType: DataType | null;
 };
 
 export type SignalKey =
