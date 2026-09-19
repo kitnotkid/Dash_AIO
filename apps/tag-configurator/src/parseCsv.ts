@@ -54,18 +54,6 @@ function findHeader(lines: string[], typeHeaders: string[]) {
   return null;
 }
 
-function stripArraySuffix(rawType: string): string {
-  return rawType.replace(/\[.*\]$/, "");
-}
-
-function findHeader(lines: string[], typeHeaders: string[]) {
-  const header = splitRow(lines[0]!).map((cell) => cell.toLowerCase());
-  const nameCol = header.findIndex((cell) => NAME_HEADERS.includes(cell));
-  const typeCol = header.findIndex((cell) => typeHeaders.includes(cell));
-  if (nameCol === -1 || typeCol === -1) return null;
-  return { header, nameCol, typeCol };
-}
-
 export function parseCsv(text: string): PlcTag[] {
   const lines = text.split(/\r?\n/).filter((line) => line.trim().length > 0);
 
@@ -86,7 +74,7 @@ export function parseCsv(text: string): PlcTag[] {
     const name = cells[nameCol];
     if (!name) continue;
 
-    const suggestedType = normalizeType(stripArraySuffix(rawType));
+    const suggestedType = normalizeType(stripArraySuffix(cells[typeCol] ?? ""));
     if (!suggestedType) continue;
 
     if (!tags.has(name)) {
