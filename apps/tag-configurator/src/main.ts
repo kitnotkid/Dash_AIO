@@ -28,6 +28,23 @@ function persist(): void {
   saveDraft(state);
 }
 
+async function readFileAsText(file: File): Promise<string> {
+  const buffer = await file.arrayBuffer();
+  const bytes = new Uint8Array(buffer);
+
+  // Studio 5000 / RSLogix "Export CSV" commonly saves as UTF-16 (Unicode).
+  // file.text() always assumes UTF-8, which mangles UTF-16 into a null byte
+  // after every character and silently breaks header detection. Sniff the
+  // BOM so we pick the encoding the file actually used.
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    return new TextDecoder("utf-16le").decode(buffer);
+  }
+  if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    return new TextDecoder("utf-16be").decode(buffer);
+  }
+  return new TextDecoder("utf-8").decode(buffer);
+}
+
 function findTag(name: string): PlcTag | undefined {
   return state.tags.find((tag) => tag.name === name);
 }
@@ -99,7 +116,7 @@ fileInput.addEventListener("change", async () => {
   const file = fileInput.files?.[0];
   if (!file) return;
 
-  const text = await file.text();
+  const text = await readFileAsText(file);
   const isCsv = file.name.toLowerCase().endsWith(".csv");
   const tags = isCsv ? parseCsv(text) : parseL5K(text);
 
