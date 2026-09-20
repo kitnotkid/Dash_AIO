@@ -17,6 +17,10 @@
       <h2>1. Import</h2>
       <input type="file" id="file-input" accept=".l5k,.csv" />
       <p id="import-status" class="status-text"></p>
+      <label class="field">
+        Append existing machine_config.json (optional)
+        <input type="file" id="config-file-input" accept=".json" />
+      </label>
 
       <label class="field">
         Machine name
@@ -44,9 +48,15 @@
       <button id="add-signal-btn" class="secondary" type="button">+ Add signal</button>
     </section>
 
+    <section class="panel">
+      <h2>Saved machines in this config</h2>
+      <div id="saved-machines" class="tag-list"></div>
+    </section>
+
     <section class="panel validation-panel">
       <h2>4. Validate &amp; export</h2>
       <ul id="validation-errors" class="validation-errors"></ul>
+      <button id="save-machine-btn" disabled>Save machine</button>
       <div class="export-actions">
         <button id="export-btn" disabled>Download machine_config.json</button>
         <button id="clear-btn" class="secondary">Clear draft</button>

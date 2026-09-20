@@ -4,14 +4,15 @@ import { parseL5K } from "./parseL5K.js";
 import { parseCsv } from "./parseCsv.js";
 import { UNIVERSAL_SIGNALS, validateMappings, validateCustomSignals, isTypeMismatch, slugify } from "./signals.js";
 import { saveDraft, loadDraft, clearDraft } from "./storage.js";
-import { buildMachineConfig, downloadMachineConfig } from "./exportConfig.js";
+import { buildMachineEntry, buildMachineConfigFile, normalizeImportedConfig, downloadMachineConfigFile } from "./exportConfig.js";
 
 function emptyDraft(): DraftState {
-  return { tags: [], machineName: "", plcIp: "", mappings: {}, customSignals: [] };
+  return { tags: [], machineName: "", plcIp: "", mappings: {}, customSignals: [], machines: [] };
 }
 
 let state: DraftState = loadDraft() ?? emptyDraft();
 state.customSignals ??= [];
+state.machines ??= [];
 let searchTerm = "";
 let customSignalIdCounter = 0;
 
@@ -28,7 +29,9 @@ const exportBtn = document.getElementById("export-btn") as HTMLButtonElement;
 const clearBtn = document.getElementById("clear-btn") as HTMLButtonElement;
 const customSignalListEl = document.getElementById("custom-signal-list")!;
 const addSignalBtn = document.getElementById("add-signal-btn") as HTMLButtonElement;
-
+const configFileInput = document.getElementById("config-file-input") as HTMLInputElement;
+const savedMachinesEl = document.getElementById("saved-machines")!;
+const saveMachineBtn = document.getElementById("save-machine-btn") as HTMLButtonElement;
 
 function persist(): void {
   saveDraft(state);
@@ -114,6 +117,20 @@ function renderCustomSignalList(): void {
     .join("");
 }
 
+function renderSavedMachines(): void {
+  savedMachinesEl.innerHTML = state.machines.length
+    ? state.machines
+        .map(
+          (m, i) => `
+      <div class="tag-row" data-machine-index="${i}">
+        <span class="mono">${m.machine.name}</span>
+        <span class="tag-type mono">${m.machine.plc.ip}</span>
+        <button type="button" class="remove-machine-btn" data-machine-index="${i}" aria-label="Remove machine">&times;</button>
+      </div>`
+        )
+        .join("")
+    : `<p class="status-text">No machines saved yet.</p>`;
+}
 
 function renderValidation(): void {
   const errors = validateMappings(state.mappings);
@@ -122,7 +139,9 @@ function renderValidation(): void {
   if (!state.plcIp.trim()) errors.push("PLC IP is required.");
 
   validationErrorsEl.innerHTML = errors.map((error) => `<li>${error}</li>`).join("");
-  exportBtn.disabled = errors.length > 0;
+  saveMachineBtn.disabled = errors.length > 0;
+  exportBtn.disabled = state.machines.length === 0;
+  exportBtn.textContent = `Download machine_config.json (${state.machines.length} machine${state.machines.length === 1 ? "" : "s"})`;
 }
 
 function renderAll(): void {
@@ -131,6 +150,7 @@ function renderAll(): void {
   renderTagList();
   renderMappingList();
   renderCustomSignalList();
+  renderSavedMachines();
   renderValidation();
 }
 
@@ -253,11 +273,61 @@ customSignalListEl.addEventListener("click", (event) => {
   renderCustomSignalList();
   renderValidation();
 });
+  
+saveMachineBtn.addEventListener("click", () => {
+  if (state.machines.some((m) => m.machine.name === state.machineName.trim())) {
+    importStatus.textContent = `A machine named "${state.machineName}" is already saved in this config.`;
+    return;
+  }
+  state.machines.push(buildMachineEntry(state.machineName, state.plcIp, state.mappings, state.customSignals));
 
-// exportBtn handler (line 181) — pass customSignals through
+  state.tags = [];
+  state.machineName = "";
+  state.plcIp = "";
+  state.mappings = {};
+  state.customSignals = [];
+  searchTerm = "";
+  tagSearchInput.value = "";
+  fileInput.value = "";
+
+  importStatus.textContent = `Machine saved. ${state.machines.length} machine${state.machines.length === 1 ? "" : "s"} in this config — upload the next PLC export to continue.`;
+  persist();
+  renderAll();
+});
+
 exportBtn.addEventListener("click", () => {
-  const config = buildMachineConfig(state.machineName, state.plcIp, state.mappings, state.customSignals);
-  downloadMachineConfig(config);
+  downloadMachineConfigFile(buildMachineConfigFile(state.machines));
+});
+
+configFileInput.addEventListener("change", async () => {
+  const file = configFileInput.files?.[0];
+  if (!file) return;
+
+  try {
+    const incoming = normalizeImportedConfig(JSON.parse(await file.text()));
+    let added = 0, skipped = 0;
+    for (const entry of incoming) {
+      if (state.machines.some((m) => m.machine.name === entry.machine.name)) { skipped++; continue; }
+      state.machines.push(entry);
+      added++;
+    }
+    importStatus.textContent = `Appended ${added} machine${added === 1 ? "" : "s"} from ${file.name}` +
+      (skipped > 0 ? ` (${skipped} skipped: already in this config).` : ".");
+    persist();
+    renderAll();
+  } catch {
+    importStatus.textContent = `Could not read ${file.name} as a machine_config.json file.`;
+  } finally {
+    configFileInput.value = "";
+  }
+});
+
+savedMachinesEl.addEventListener("click", (event) => {
+  const target = event.target as HTMLElement;
+  if (!target.classList.contains("remove-machine-btn")) return;
+  state.machines.splice(Number(target.dataset.machineIndex), 1);
+  persist();
+  renderAll();
 });
 
 renderAll();

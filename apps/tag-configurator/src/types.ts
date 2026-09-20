@@ -30,16 +30,17 @@ export type CustomSignal = {
   assignedType: DataType;
 };
 
-export type MachineConfig = {
-  schema_version: "1.0";
+export type MachineEntry = {
   machine: {
     name: string;
-    plc: {
-      vendor: "rockwell";
-      ip: string;
-    };
+    plc: { vendor: "rockwell"; ip: string };
   };
   signals: Record<string, { tag: string; data_type: DataType }>;
+};
+
+export type MachineConfigFile = {
+  schema_version: "1.0";
+  machines: MachineEntry[];
 };
 
 export type DraftState = {
@@ -48,5 +49,6 @@ export type DraftState = {
   plcIp: string;
   mappings: Partial<Record<SignalKey, SignalMapping>>;
   customSignals: CustomSignal[];
+  machines: MachineEntry[];
 };
 
