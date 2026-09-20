@@ -50,5 +50,6 @@ export type DraftState = {
   mappings: Partial<Record<SignalKey, SignalMapping>>;
   customSignals: CustomSignal[];
   machines: MachineEntry[];
+  editingIndex: number | null;
 };
 

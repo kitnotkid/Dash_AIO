@@ -7,12 +7,13 @@ import { saveDraft, loadDraft, clearDraft } from "./storage.js";
 import { buildMachineEntry, buildMachineConfigFile, normalizeImportedConfig, downloadMachineConfigFile } from "./exportConfig.js";
 
 function emptyDraft(): DraftState {
-  return { tags: [], machineName: "", plcIp: "", mappings: {}, customSignals: [], machines: [] };
+  return { tags: [], machineName: "", plcIp: "", mappings: {}, customSignals: [], machines: [], editingIndex: null };
 }
 
 let state: DraftState = loadDraft() ?? emptyDraft();
 state.customSignals ??= [];
 state.machines ??= [];
+state.editingIndex ??= null;
 let searchTerm = "";
 let customSignalIdCounter = 0;
 
@@ -122,8 +123,8 @@ function renderSavedMachines(): void {
     ? state.machines
         .map(
           (m, i) => `
-      <div class="tag-row" data-machine-index="${i}">
-        <span class="mono">${m.machine.name}</span>
+      <div class="tag-row${i === state.editingIndex ? " editing" : ""}">
+        <span class="mono machine-edit-target" data-machine-index="${i}" style="cursor:pointer;text-decoration:underline;">${m.machine.name}${i === state.editingIndex ? " (editing)" : ""}</span>
         <span class="tag-type mono">${m.machine.plc.ip}</span>
         <button type="button" class="remove-machine-btn" data-machine-index="${i}" aria-label="Remove machine">&times;</button>
       </div>`
@@ -140,6 +141,7 @@ function renderValidation(): void {
 
   validationErrorsEl.innerHTML = errors.map((error) => `<li>${error}</li>`).join("");
   saveMachineBtn.disabled = errors.length > 0;
+  saveMachineBtn.textContent = state.editingIndex !== null ? "Update machine" : "Save machine";
   exportBtn.disabled = state.machines.length === 0;
   exportBtn.textContent = `Download machine_config.json (${state.machines.length} machine${state.machines.length === 1 ? "" : "s"})`;
 }
@@ -275,12 +277,25 @@ customSignalListEl.addEventListener("click", (event) => {
 });
   
 saveMachineBtn.addEventListener("click", () => {
-  if (state.machines.some((m) => m.machine.name === state.machineName.trim())) {
-    importStatus.textContent = `A machine named "${state.machineName}" is already saved in this config.`;
+  const trimmedIp = state.plcIp.trim();
+  const collision = state.machines.some((m, i) => m.machine.plc.ip === trimmedIp && i !== state.editingIndex);
+  if (collision) {
+    alert(`A machine with IP "${trimmedIp}" is already saved in this config. Choose a different IP or edit that existing machine instead.`);
+    importStatus.textContent = `Blocked: IP "${trimmedIp}" is already used by another saved machine.`;
     return;
   }
-  state.machines.push(buildMachineEntry(state.machineName, state.plcIp, state.mappings, state.customSignals));
 
+  const entry = buildMachineEntry(state.machineName, state.plcIp, state.mappings, state.customSignals);
+
+  if (state.editingIndex !== null) {
+    state.machines[state.editingIndex] = entry;
+    importStatus.textContent = `Machine "${state.machineName.trim()}" updated.`;
+  } else {
+    state.machines.push(entry);
+    importStatus.textContent = `Machine saved. ${state.machines.length} machine${state.machines.length === 1 ? "" : "s"} in this config — upload the next PLC export to continue.`;
+  }
+
+  state.editingIndex = null;
   state.tags = [];
   state.machineName = "";
   state.plcIp = "";
@@ -290,10 +305,37 @@ saveMachineBtn.addEventListener("click", () => {
   tagSearchInput.value = "";
   fileInput.value = "";
 
-  importStatus.textContent = `Machine saved. ${state.machines.length} machine${state.machines.length === 1 ? "" : "s"} in this config — upload the next PLC export to continue.`;
   persist();
   renderAll();
 });
+
+function loadMachineForEditing(index: number): void {
+  const entry = state.machines[index];
+  if (!entry) return;
+
+  const universalKeys = new Set(UNIVERSAL_SIGNALS.map((s) => s.key));
+  const mappings: DraftState["mappings"] = {};
+  const customSignals: CustomSignal[] = [];
+
+  for (const [key, signal] of Object.entries(entry.signals)) {
+    if (universalKeys.has(key as SignalKey)) {
+      mappings[key as SignalKey] = { tag: signal.tag, assignedType: signal.data_type };
+    } else {
+      customSignalIdCounter += 1;
+      customSignals.push({ id: `custom-${customSignalIdCounter}`, key, label: key, tag: signal.tag, assignedType: signal.data_type });
+    }
+  }
+
+  state.editingIndex = index;
+  state.machineName = entry.machine.name;
+  state.plcIp = entry.machine.plc.ip;
+  state.mappings = mappings;
+  state.customSignals = customSignals;
+
+  importStatus.textContent = `Editing "${entry.machine.name}". Re-import its PLC export if you need tag autocomplete, then click Update machine.`;
+  persist();
+  renderAll();
+}
 
 exportBtn.addEventListener("click", () => {
   downloadMachineConfigFile(buildMachineConfigFile(state.machines));
@@ -303,16 +345,27 @@ configFileInput.addEventListener("change", async () => {
   const file = configFileInput.files?.[0];
   if (!file) return;
 
-  try {
+  if (state.machines.length > 0) {
+    const proceed = confirm(
+      `This config already has ${state.machines.length} saved machine${state.machines.length === 1 ? "" : "s"} in this session.\n\n` +
+      `Uploading "${file.name}" will ADD its machines to that list (any with a matching name are skipped, not overwritten).\n\nContinue?`
+    );
+    if (!proceed) {
+      configFileInput.value = "";
+      return;
+    }
+  }
+
+    try {
     const incoming = normalizeImportedConfig(JSON.parse(await file.text()));
     let added = 0, skipped = 0;
     for (const entry of incoming) {
-      if (state.machines.some((m) => m.machine.name === entry.machine.name)) { skipped++; continue; }
+      if (state.machines.some((m) => m.machine.plc.ip === entry.machine.plc.ip)) { skipped++; continue; }
       state.machines.push(entry);
       added++;
     }
     importStatus.textContent = `Appended ${added} machine${added === 1 ? "" : "s"} from ${file.name}` +
-      (skipped > 0 ? ` (${skipped} skipped: already in this config).` : ".");
+      (skipped > 0 ? ` (${skipped} skipped: IP already in this config).` : ".");
     persist();
     renderAll();
   } catch {
@@ -324,10 +377,21 @@ configFileInput.addEventListener("change", async () => {
 
 savedMachinesEl.addEventListener("click", (event) => {
   const target = event.target as HTMLElement;
-  if (!target.classList.contains("remove-machine-btn")) return;
-  state.machines.splice(Number(target.dataset.machineIndex), 1);
-  persist();
-  renderAll();
+  const index = Number(target.dataset.machineIndex);
+  if (Number.isNaN(index)) return;
+
+  if (target.classList.contains("remove-machine-btn")) {
+    state.machines.splice(index, 1);
+    if (state.editingIndex === index) state.editingIndex = null;
+    else if (state.editingIndex !== null && state.editingIndex > index) state.editingIndex -= 1;
+    persist();
+    renderAll();
+    return;
+  }
+
+  if (target.classList.contains("machine-edit-target")) {
+    loadMachineForEditing(index);
+  }
 });
 
 renderAll();
