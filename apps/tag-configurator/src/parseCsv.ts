@@ -78,10 +78,6 @@ export function parseCsv(text: string): PlcTag[] {
     if (!tags.has(name)) {
       tags.set(name, { name, suggestedType });
     }
-
-    if (!tags.has(name)) {
-      tags.set(name, { name, suggestedType });
-    }
   }
 
   return [...tags.values()];
