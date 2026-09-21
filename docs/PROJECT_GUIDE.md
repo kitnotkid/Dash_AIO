@@ -67,74 +67,6 @@ Target end-to-end architecture:
 
 ---
 
-## 4. Component 1 — Tag Configurator
-
-### Delivery form
-Browser-based app (HTML/CSS/TypeScript). No Windows desktop app for MVP.
-
-    Customer selects L5K/CSV from their computer
-    → browser parses the file locally
-    → customer searches and maps tags
-    → browser saves the draft locally (persistent browser storage, not cache)
-    → browser exports machine_config.json
-
-PLC export is never uploaded to a server for the MVP — supports offline use and keeps
-customer PLC information on their device. This matters specifically for OT (Operational
-Technology — the industrial control/network side, as opposed to IT) environments, where
-customers are typically wary of anything reaching outside their factory network.
-
-### MVP scope
-1. Import Rockwell `.L5K` and Rockwell/generic tag CSV.
-   — Note: Rockwell CSV format varies by export tool (RSLogix vs Studio 5000, different
-   column sets). Collect real sample files from each before finalizing the parser.
-2. Extract available tags and their data types.
-3. Fast search and filtering.
-4. Customer manually assigns tags to universal machine signals.
-5. Validate required mappings and data types.
-6. Generate and download machine_config.json.
-7. Save/restore configuration via persistent browser storage.
-
-The customer makes the final mapping choice. AI may later suggest tags, but never decides.
-
-### Data type integrity (mapping UI)
-
-| Column | Behavior |
-|---|---|
-| Tag | From parsed L5K/CSV |
-| Suggested Type | Auto-filled from the source file's declared type (BOOL/DINT/REAL) |
-| Assigned Type | Customer's choice — defaults to Suggested, editable, flagged if it diverges |
-
-This exists specifically to prevent a class of bug already seen once (a REAL tag manually
-mapped as DINT, corrupting downstream values). Auto-populating removes the guesswork;
-flagging divergence keeps the customer in control without hiding a mistake.
-
-### Initial universal signals
-
-    running_state, stop_state, fault_state, cycle_complete,
-    production_count, good_count, reject_count, auto_mode
-
-Exact set will evolve as the collector and dashboard take shape — not fixed to what an
-old collector required, since there is no old collector being extended.
-
-### Configuration contract
-
-machine_config.json describes what data exists and where to retrieve it. It must not
-contain OEE calculations — that's the dashboard's job, computed from stored events.
-
-```json
-{
-  "schema_version": "1.0",
-  "machine": {
-    "name": "Machine_001",
-    "plc": { "vendor": "rockwell", "ip": "192.168.1.10" }
-  },
-  "signals": {
-    "running_state": { "tag": "St_0_Master_Ctrl.MachineRun", "data_type": "BOOL" },
-    "production_count": { "tag": "St_0_Master_Ctrl.CNT_PartOutProcess", "data_type": "DINT" }
-  }
-}
-```
-
 Schema is not finalized and is not bound to any existing collector's requirements —
 it's designed for the new collector being built, informed by (not constrained by) the
 reference system's schema shape.
@@ -253,6 +185,10 @@ Configurator screen flow: Import → review searchable tags → map signals → 
 export JSON. No invented production figures, OEE, or machine states in the configurator
 — that's the dashboard's job once real data exists.
 
+Configurator status: functionality (import, search, mapping, validation, multi-machine
+save/export/import, persistence) is done — `styles.css` has not yet been brought in line
+with this section.
+
 ---
 
 ## 10. Technology Decisions
@@ -277,10 +213,12 @@ CSS styles; it's not a substitute for C# or JS. Python is not required for this 
 - Treat all of it as informative, not constraining — schema/architecture in this guide
   can change once you're actually building.
 
-**Phase 1 — Build the Tag Configurator**
+**Phase 1 — Build the Tag Configurator** — DONE (functionality; CSS/visual pass pending)
     L5K/CSV → tag list → manual mapping (with type suggestion) → validation → machine_config.json
 Success: customer selects file locally; tag list searchable/legible; required mappings
-can't export incomplete; valid JSON downloads and restores locally.
+can't export incomplete; valid JSON downloads and restores locally; multiple machines
+can be mapped and saved into one config before export.
+Remaining: apply the §9 visual direction (colors/spacing/type) — logic/UI wiring is complete.
 
 **Phase 2 — Define the JSON contract**
 Finalize signal list and schema based on what the new collector actually needs — not
@@ -307,7 +245,8 @@ analytics, AI-assisted mapping, cloud hosting, SaaS features.
 
 ## 12. Current Priority
 
-    NOW:  Tag Configurator browser MVP
+    DONE: Tag Configurator functionality (import, mapping, validation, multi-machine export/import, persistence)
+    NOW:  Tag Configurator visual pass (apply §9 styling)
     NEXT: machine_config.json schema finalization + new collector build
     THEN: event history validation + new dashboard build
 
