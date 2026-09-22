@@ -1,14 +1,22 @@
 :root {
-  --bg: #eef2f7;
-  --surface: #ffffff;
-  --border: #d7dee7;
-  --text: #1c2b3a;
-  --text-muted: #5b6b7c;
-  --primary: #2563eb;
-  --primary-hover: #1d4ed8;
-  --ok: #16a34a;
-  --warn: #d97706;
-  --danger: #dc2626;
+  --bg: #d2d4d8;
+  --panel: #fbfbfc;
+  --panel-inset: #eef0f2;
+  --border: #e3e5e8;
+  --border-strong: #cdd0d4;
+  --text: #1b1d20;
+  --text-muted: #5b5f65;
+  --text-faint: #90949a;
+  --nameplate: #1b1d20;
+  --nameplate-text: #eceef0;
+  --amber: #c1791a;
+  --amber-hover: #a8690f;
+  --ok: #2f8f52;
+  --warn: #c1791a;
+  --danger: #c0392b;
+  --cyan: #2a7d8c;
+  --violet: #6a5fae;
+  --teal: #2b8f7c;
 }
 
 * {
@@ -19,89 +27,151 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--text);
-  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .mono {
-  font-family: "SFMono-Regular", Consolas, monospace;
+  font-family: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
 }
 
 .app-header {
-  padding: 24px 32px 8px;
+  padding: 28px 32px;
+  background: var(--nameplate);
+  color: var(--nameplate-text);
 }
 
 .app-header h1 {
-  margin: 0 0 4px;
-  font-size: 1.5rem;
+  margin: 0 0 6px;
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 1.75rem;
+  font-weight: 600;
+  letter-spacing: -0.01em;
 }
 
 .subtitle {
   margin: 0;
-  color: var(--text-muted);
+  color: #9a9ea4;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
 }
 
 .app-main {
   display: grid;
   grid-template-columns: 1fr 1fr;
-  gap: 20px;
-  padding: 16px 32px 32px;
+  gap: 24px;
+  padding: 28px 32px 40px;
+}
+
+/* Visual order only — DOM order is unchanged so element IDs stay stable for JS */
+.import-panel { order: 1; }
+.saved-panel { order: 2; }
+.mapping-panel { order: 3; }
+.tags-panel { order: 4; }
+.validation-panel { order: 5; }
+
+.panel-full {
+  grid-column: 1 / -1;
+}
+
+.import-grid {
+  display: grid;
+  grid-template-columns: 1fr 1.1fr;
+  gap: 28px;
+  margin-top: 8px;
+}
+
+.dropzone {
+  border: 1px dashed var(--border-strong);
+  background: var(--panel-inset);
+  border-radius: 8px;
+  padding: 14px;
+  min-height: 96px;
+  display: flex;
+  align-items: center;
+}
+
+.dropzone input[type="file"] {
+  margin-top: 0;
+  background: transparent;
+  border: none;
+  padding: 0;
 }
 
 .panel {
-  background: var(--surface);
+  background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 16px;
-  padding: 20px;
+  border-radius: 10px;
+  overflow: hidden;
+  padding: 0 22px 22px;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, 0.05), 0 10px 24px -14px rgba(20, 22, 26, 0.18);
 }
 
 .panel h2 {
-  margin-top: 0;
-  font-size: 1.05rem;
+  margin: 0 -22px 16px;
+  padding: 12px 22px;
+  background: var(--nameplate);
+  color: var(--nameplate-text);
+  border-top: 2px solid var(--amber);
+  font-family: "Space Grotesk", sans-serif;
+  font-size: 0.85rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 }
 
 .field {
   display: block;
-  margin-top: 12px;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  margin-top: 16px;
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 input[type="text"],
 input[type="search"],
+input[type="file"],
 select {
   display: block;
   width: 100%;
-  margin-top: 4px;
-  padding: 8px 10px;
+  margin-top: 6px;
+  padding: 10px 12px;
   border: 1px solid var(--border);
-  border-radius: 10px;
-  font-size: 0.95rem;
-  background: var(--surface);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-family: "IBM Plex Mono", monospace;
+  background: var(--panel-inset);
   color: var(--text);
 }
 
 .status-text {
   color: var(--text-muted);
-  font-size: 0.9rem;
+  font-size: 0.7rem;
   min-height: 1.2em;
+  margin-top: 8px;
 }
 
 .tag-list {
   max-height: 360px;
   overflow-y: auto;
-  margin-top: 12px;
+  margin-top: 14px;
   border: 1px solid var(--border);
-  border-radius: 10px;
+  border-radius: 8px;
 }
 
 .tag-row {
   display: grid;
   grid-template-columns: 1fr auto;
   gap: 8px;
-  padding: 8px 12px;
+  align-items: center;
+  padding: 9px 12px;
   border-bottom: 1px solid var(--border);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 0.85rem;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+}
+
+.tag-row:nth-child(even) {
+  background: var(--panel-inset);
 }
 
 .tag-row:last-child {
@@ -109,7 +179,95 @@ select {
 }
 
 .tag-type {
+  font-size: 0.6rem;
+  letter-spacing: 0.05em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--text-faint);
+  color: var(--text-faint);
+}
+
+.tag-type.type-bool { color: var(--cyan); border-color: var(--cyan); }
+.tag-type.type-dint { color: var(--violet); border-color: var(--violet); }
+.tag-type.type-real { color: var(--teal); border-color: var(--teal); }
+
+#saved-machines.tag-list {
+  border: none;
+  max-height: none;
+}
+
+.machine-card {
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 10px 12px;
+  margin-bottom: 8px;
+  background: var(--panel);
+}
+
+.machine-card:last-child {
+  margin-bottom: 0;
+}
+
+.machine-card.editing {
+  border-color: var(--amber);
+}
+
+.machine-card-head {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.machine-ip {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text);
+  background: var(--panel-inset);
+  border: 1px solid var(--border-strong);
+  border-radius: 4px;
+  padding: 3px 8px;
+}
+
+.machine-card-head .machine-edit-target {
+  flex: 1;
+  font-size: 0.75rem;
   color: var(--text-muted);
+}
+
+.machine-card-signals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.signal-chip {
+  font-size: 0.6rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 3px 7px;
+  border-radius: 4px;
+  background: var(--panel-inset);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+}
+
+.signal-chip-empty {
+  color: var(--text-faint);
+  text-transform: none;
+  letter-spacing: normal;
+}
+
+.remove-machine-btn {
+  padding: 4px 8px;
+  border-radius: 4px;
+  background: var(--panel-inset);
+  border: 1px solid var(--border);
+  color: var(--danger);
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 0.75rem;
+  font-weight: 400;
+  box-shadow: none;
 }
 
 .mapping-row {
@@ -117,7 +275,7 @@ select {
   grid-template-columns: 140px 1fr 90px;
   gap: 8px;
   align-items: center;
-  padding: 8px 0;
+  padding: 9px 0;
   border-bottom: 1px solid var(--border);
 }
 
@@ -126,7 +284,8 @@ select {
 }
 
 .mapping-row .signal-label {
-  font-size: 0.9rem;
+  font-size: 0.75rem;
+  color: var(--text);
 }
 
 .mapping-row .signal-label.required::after {
@@ -143,7 +302,7 @@ select {
   margin: 0 0 12px;
   padding-left: 18px;
   color: var(--danger);
-  font-size: 0.9rem;
+  font-size: 0.75rem;
 }
 
 .validation-errors:empty {
@@ -156,35 +315,43 @@ select {
 }
 
 button {
-  padding: 10px 16px;
-  border-radius: 10px;
+  font-family: "Space Grotesk", sans-serif;
+  padding: 10px 18px;
+  border-radius: 7px;
   border: 1px solid transparent;
-  background: var(--primary);
-  color: #fff;
-  font-size: 0.95rem;
+  background: var(--amber);
+  color: #241500;
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
   cursor: pointer;
+  box-shadow: 0 1px 2px rgba(20, 22, 26, 0.15);
 }
 
 button:hover:not(:disabled) {
-  background: var(--primary-hover);
+  background: var(--amber-hover);
 }
 
 button:disabled {
   background: var(--border);
-  color: var(--text-muted);
+  color: var(--text-faint);
+  box-shadow: none;
   cursor: not-allowed;
 }
 
 button.secondary {
-  background: var(--surface);
-  border-color: var(--border);
+  background: var(--panel);
+  border-color: var(--border-strong);
   color: var(--text);
+  box-shadow: none;
 }
 
 .subsection-title {
   margin: 20px 0 4px;
-  font-size: 0.9rem;
-  color: var(--text-muted);
+  font-size: 0.65rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-faint);
 }
 
 .custom-signal-list .mapping-row {
@@ -193,11 +360,17 @@ button.secondary {
 
 .remove-signal-btn {
   padding: 4px 8px;
-  background: var(--surface);
+  background: var(--panel-inset);
   border: 1px solid var(--border);
   color: var(--danger);
+  box-shadow: none;
 }
 
 #add-signal-btn {
   margin-top: 12px;
+  border-style: dashed;
+  border-color: var(--border-strong);
+  background: transparent;
+  color: var(--text-muted);
+  box-shadow: none;
 }

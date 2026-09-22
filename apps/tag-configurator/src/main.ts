@@ -68,7 +68,7 @@ function renderTagList(): void {
   tagListEl.innerHTML = filtered
     .map(
       (tag) =>
-        `<div class="tag-row"><span class="mono">${tag.name}</span><span class="tag-type mono">${tag.suggestedType ?? "—"}</span></div>`
+        `<div class="tag-row"><span class="mono">${tag.name}</span><span class="tag-type mono${tag.suggestedType ? ` type-${tag.suggestedType.toLowerCase()}` : ""}">${tag.suggestedType ?? "—"}</span></div>`
     )
     .join("");
 }
@@ -118,17 +118,30 @@ function renderCustomSignalList(): void {
     .join("");
 }
 
+function configuredSignalLabel(key: string): string {
+  const universal = UNIVERSAL_SIGNALS.find((s) => s.key === key);
+  return universal ? universal.label : key;
+}
+
 function renderSavedMachines(): void {
   savedMachinesEl.innerHTML = state.machines.length
     ? state.machines
-        .map(
-          (m, i) => `
-      <div class="tag-row${i === state.editingIndex ? " editing" : ""}">
-        <span class="mono machine-edit-target" data-machine-index="${i}" style="cursor:pointer;text-decoration:underline;">${m.machine.name}${i === state.editingIndex ? " (editing)" : ""}</span>
-        <span class="tag-type mono">${m.machine.plc.ip}</span>
-        <button type="button" class="remove-machine-btn" data-machine-index="${i}" aria-label="Remove machine">&times;</button>
-      </div>`
-        )
+        .map((m, i) => {
+          const keys = Object.keys(m.signals);
+          const chips = keys.length
+            ? keys.map((key) => `<span class="signal-chip">${configuredSignalLabel(key)}</span>`).join("")
+            : `<span class="signal-chip signal-chip-empty">No signals configured</span>`;
+
+          return `
+      <div class="machine-card${i === state.editingIndex ? " editing" : ""}">
+        <div class="machine-card-head">
+          <span class="machine-ip mono">${m.machine.plc.ip}</span>
+          <span class="mono machine-edit-target" data-machine-index="${i}" style="cursor:pointer;text-decoration:underline;">${m.machine.name}${i === state.editingIndex ? " (editing)" : ""}</span>
+          <button type="button" class="remove-machine-btn" data-machine-index="${i}" aria-label="Remove machine">&times;</button>
+        </div>
+        <div class="machine-card-signals">${chips}</div>
+      </div>`;
+        })
         .join("")
     : `<p class="status-text">No machines saved yet.</p>`;
 }

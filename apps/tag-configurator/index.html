@@ -4,6 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Tag Configurator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" />
   <link rel="stylesheet" href="./styles.css" />
 </head>
 <body>
@@ -13,29 +15,37 @@
   </header>
 
   <main class="app-main">
-    <section class="panel import-panel">
+    <section class="panel import-panel panel-full">
       <h2>1. Import</h2>
-      <input type="file" id="file-input" accept=".l5k,.csv" />
-      <p id="import-status" class="status-text"></p>
-      <label class="field">
-        Append existing machine_config.json (optional)
-        <input type="file" id="config-file-input" accept=".json" />
-      </label>
+      <div class="import-grid">
+        <div>
+          <span class="field">Source File</span>
+          <div class="dropzone">
+            <input type="file" id="file-input" accept=".l5k,.csv" />
+          </div>
+          <p id="import-status" class="status-text"></p>
+        </div>
+        <div>
+          <label class="field">
+            Append existing machine_config.json (optional)
+            <input type="file" id="config-file-input" accept=".json" />
+          </label>
 
-      <label class="field">
-        Machine name
-        <input type="text" id="machine-name" placeholder="Machine_001" />
-      </label>
-      <label class="field">
-        PLC IP
-        <input type="text" id="plc-ip" placeholder="192.168.1.10" class="mono" />
-      </label>
+          <label class="field">
+            Machine name
+            <input type="text" id="machine-name" placeholder="Machine_001" />
+          </label>
+          <label class="field">
+            PLC IP
+            <input type="text" id="plc-ip" placeholder="192.168.1.10" class="mono" />
+          </label>
+        </div>
+      </div>
     </section>
 
-    <section class="panel tags-panel">
-      <h2>2. Tags</h2>
-      <input type="search" id="tag-search" placeholder="Search tags..." />
-      <div id="tag-list" class="tag-list"></div>
+    <section class="panel saved-panel panel-full">
+      <h2>2. Saved machines in this config</h2>
+      <div id="saved-machines" class="tag-list"></div>
     </section>
 
     <section class="panel mapping-panel">
@@ -48,13 +58,14 @@
       <button id="add-signal-btn" class="secondary" type="button">+ Add signal</button>
     </section>
 
-    <section class="panel">
-      <h2>Saved machines in this config</h2>
-      <div id="saved-machines" class="tag-list"></div>
+    <section class="panel tags-panel">
+      <h2>4. Tags</h2>
+      <input type="search" id="tag-search" placeholder="Search tags..." />
+      <div id="tag-list" class="tag-list"></div>
     </section>
 
-    <section class="panel validation-panel">
-      <h2>4. Validate &amp; export</h2>
+    <section class="panel validation-panel panel-full">
+      <h2>5. Validate &amp; export</h2>
       <ul id="validation-errors" class="validation-errors"></ul>
       <button id="save-machine-btn" disabled>Save machine</button>
       <div class="export-actions">

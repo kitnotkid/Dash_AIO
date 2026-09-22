@@ -1,4 +1,4 @@
-export function buildMachineConfig(machineName, plcIp, mappings, customSignals) {
+export function buildMachineEntry(machineName, plcIp, mappings, customSignals) {
     const signals = {};
     for (const [key, mapping] of Object.entries(mappings)) {
         if (!mapping)
@@ -9,18 +9,28 @@ export function buildMachineConfig(machineName, plcIp, mappings, customSignals) 
         signals[custom.key] = { tag: custom.tag, data_type: custom.assignedType };
     }
     return {
-        schema_version: "1.0",
-        machine: {
-            name: machineName,
-            plc: { vendor: "rockwell", ip: plcIp },
-        },
+        machine: { name: machineName, plc: { vendor: "rockwell", ip: plcIp } },
         signals,
     };
 }
-export function downloadMachineConfig(config) {
-    const blob = new Blob([JSON.stringify(config, null, 2)], {
-        type: "application/json",
-    });
+export function buildMachineConfigFile(machines) {
+    return { schema_version: "1.0", machines };
+}
+export function normalizeImportedConfig(parsed) {
+    if (!parsed || typeof parsed !== "object") {
+        throw new Error("Not a valid machine_config.json file.");
+    }
+    const obj = parsed;
+    if (Array.isArray(obj.machines)) {
+        return obj.machines;
+    }
+    if (obj.machine && obj.signals) {
+        return [{ machine: obj.machine, signals: obj.signals }];
+    }
+    throw new Error("Unrecognized machine_config.json shape.");
+}
+export function downloadMachineConfigFile(file) {
+    const blob = new Blob([JSON.stringify(file, null, 2)], { type: "application/json" });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;
