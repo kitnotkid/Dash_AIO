@@ -185,10 +185,20 @@ Configurator screen flow: Import → review searchable tags → map signals → 
 export JSON. No invented production figures, OEE, or machine states in the configurator
 — that's the dashboard's job once real data exists.
 
-Configurator status: functionality (import, search, mapping, validation, multi-machine
-save/export/import, persistence) is done — `styles.css` has not yet been brought in line
-with this section.
+Configurator status: functionality AND a visual pass are both done. Note the divergence:
+the shipped Configurator style is NOT the light blue-gray system described above — it's a
+flat/matte industrial-panel system (dark nameplate section headers, amber single-accent,
+Space Grotesk + IBM Plex Mono, low/no border-radius) chosen deliberately during design
+review as a better fit for a tool that sits next to PLC/HMI screens on a factory PC. This
+section's bullets are unchanged so they still apply to the Dashboard (§8, not yet built) —
+revisit whether the Dashboard should match the Configurator's actual shipped style or this
+section's original spec before Phase 5.
 
+Configurator UX additions beyond the original functionality list: per-machine edit/exit-edit
+(pencil↔check toggle on each saved machine), delete confirmation prompt, saved-machine cards
+showing IP + name + which universal/custom signals are actually configured, and a fix so
+re-uploading a PLC export while editing a saved machine no longer wipes out manually-typed
+tag mappings that weren't present in that CSV.
 ---
 
 ## 10. Technology Decisions
@@ -213,12 +223,13 @@ CSS styles; it's not a substitute for C# or JS. Python is not required for this 
 - Treat all of it as informative, not constraining — schema/architecture in this guide
   can change once you're actually building.
 
-**Phase 1 — Build the Tag Configurator** — DONE (functionality; CSS/visual pass pending)
+**Phase 1 — Build the Tag Configurator** — DONE (functionality + visual pass)
     L5K/CSV → tag list → manual mapping (with type suggestion) → validation → machine_config.json
 Success: customer selects file locally; tag list searchable/legible; required mappings
 can't export incomplete; valid JSON downloads and restores locally; multiple machines
 can be mapped and saved into one config before export.
-Remaining: apply the §9 visual direction (colors/spacing/type) — logic/UI wiring is complete.
+Visual pass applied (see §9 note on the style divergence from this guide's original spec).
+Remaining: none identified for MVP — logic, UI wiring, and styling are all complete.
 
 **Phase 2 — Define the JSON contract**
 Finalize signal list and schema based on what the new collector actually needs — not
@@ -245,9 +256,11 @@ analytics, AI-assisted mapping, cloud hosting, SaaS features.
 
 ## 12. Current Priority
 
-    DONE: Tag Configurator functionality (import, mapping, validation, multi-machine export/import, persistence)
-    NOW:  Tag Configurator visual pass (apply §9 styling)
-    NEXT: machine_config.json schema finalization + new collector build
+    DONE: Tag Configurator functionality + visual pass (import, mapping, validation,
+        multi-machine export/import, persistence, edit/cancel-edit, delete confirmation,
+        styled per the flat/matte panel system noted in §9)
+    NOW:  machine_config.json schema finalization
+    NEXT: new collector build
     THEN: event history validation + new dashboard build
 
 First complete vertical slice:
@@ -282,7 +295,7 @@ drivers) stays isolated at the edges. Universal config and analytics layers stay
 vendor-independent. No new-vendor work before the Rockwell path is proven.
 
 **No git commit, no git push.** Claude Code only provide code snippet in chat, do not draft PR create.
-Never run `git commit` or `git push` or draft PR in this repo unless the user explicitly asks
+Never run `git commit` or `git push` in this repo unless the user explicitly asks
 in that exact session. Report what was changed/added/needs updating — the user
 commits and pushes themselves.
 

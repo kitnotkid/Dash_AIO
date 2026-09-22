@@ -33,6 +33,7 @@ const addSignalBtn = document.getElementById("add-signal-btn") as HTMLButtonElem
 const configFileInput = document.getElementById("config-file-input") as HTMLInputElement;
 const savedMachinesEl = document.getElementById("saved-machines")!;
 const saveMachineBtn = document.getElementById("save-machine-btn") as HTMLButtonElement;
+const cancelEditBtn = document.getElementById("cancel-edit-btn") as HTMLButtonElement;
 
 function persist(): void {
   saveDraft(state);
@@ -123,6 +124,9 @@ function configuredSignalLabel(key: string): string {
   return universal ? universal.label : key;
 }
 
+const PEN_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"/></svg>`;
+const CHECK_ICON = `<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>`;
+
 function renderSavedMachines(): void {
   savedMachinesEl.innerHTML = state.machines.length
     ? state.machines
@@ -131,12 +135,14 @@ function renderSavedMachines(): void {
           const chips = keys.length
             ? keys.map((key) => `<span class="signal-chip">${configuredSignalLabel(key)}</span>`).join("")
             : `<span class="signal-chip signal-chip-empty">No signals configured</span>`;
+          const isEditing = i === state.editingIndex;
 
           return `
-      <div class="machine-card${i === state.editingIndex ? " editing" : ""}">
+      <div class="machine-card${isEditing ? " editing" : ""}">
         <div class="machine-card-head">
           <span class="machine-ip mono">${m.machine.plc.ip}</span>
-          <span class="mono machine-edit-target" data-machine-index="${i}" style="cursor:pointer;text-decoration:underline;">${m.machine.name}${i === state.editingIndex ? " (editing)" : ""}</span>
+          <span class="mono machine-name">${m.machine.name}${isEditing ? " (editing)" : ""}</span>
+          <button type="button" class="edit-machine-btn${isEditing ? " is-editing" : ""}" data-machine-index="${i}" aria-label="${isEditing ? "Exit edit" : "Edit machine"}">${isEditing ? CHECK_ICON : PEN_ICON}</button>
           <button type="button" class="remove-machine-btn" data-machine-index="${i}" aria-label="Remove machine">&times;</button>
         </div>
         <div class="machine-card-signals">${chips}</div>
@@ -155,6 +161,7 @@ function renderValidation(): void {
   validationErrorsEl.innerHTML = errors.map((error) => `<li>${error}</li>`).join("");
   saveMachineBtn.disabled = errors.length > 0;
   saveMachineBtn.textContent = state.editingIndex !== null ? "Update machine" : "Save machine";
+  cancelEditBtn.hidden = state.editingIndex === null;
   exportBtn.disabled = state.machines.length === 0;
   exportBtn.textContent = `Download machine_config.json (${state.machines.length} machine${state.machines.length === 1 ? "" : "s"})`;
 }
@@ -179,11 +186,13 @@ fileInput.addEventListener("change", async () => {
 
   state.tags = tags;
 
-  const validNames = new Set(tags.map((tag) => tag.name));
-  for (const key of Object.keys(state.mappings) as SignalKey[]) {
-    const mapping = state.mappings[key];
-    if (mapping && !validNames.has(mapping.tag)) {
-      delete state.mappings[key];
+  if (state.editingIndex === null) {
+    const validNames = new Set(tags.map((tag) => tag.name));
+    for (const key of Object.keys(state.mappings) as SignalKey[]) {
+      const mapping = state.mappings[key];
+      if (mapping && !validNames.has(mapping.tag)) {
+        delete state.mappings[key];
+      }
     }
   }
 
@@ -309,14 +318,7 @@ saveMachineBtn.addEventListener("click", () => {
   }
 
   state.editingIndex = null;
-  state.tags = [];
-  state.machineName = "";
-  state.plcIp = "";
-  state.mappings = {};
-  state.customSignals = [];
-  searchTerm = "";
-  tagSearchInput.value = "";
-  fileInput.value = "";
+  resetDraftFields();
 
   persist();
   renderAll();
@@ -349,6 +351,27 @@ function loadMachineForEditing(index: number): void {
   persist();
   renderAll();
 }
+
+function resetDraftFields(): void {
+  state.tags = [];
+  state.machineName = "";
+  state.plcIp = "";
+  state.mappings = {};
+  state.customSignals = [];
+  searchTerm = "";
+  tagSearchInput.value = "";
+  fileInput.value = "";
+}
+
+function exitEdit(): void {
+  state.editingIndex = null;
+  resetDraftFields();
+  importStatus.textContent = "";
+  persist();
+  renderAll();
+}
+
+cancelEditBtn.addEventListener("click", exitEdit);
 
 exportBtn.addEventListener("click", () => {
   downloadMachineConfigFile(buildMachineConfigFile(state.machines));
@@ -389,11 +412,17 @@ configFileInput.addEventListener("change", async () => {
 });
 
 savedMachinesEl.addEventListener("click", (event) => {
-  const target = event.target as HTMLElement;
+  const target = (event.target as HTMLElement).closest("button") as HTMLElement | null;
+  if (!target) return;
   const index = Number(target.dataset.machineIndex);
   if (Number.isNaN(index)) return;
 
   if (target.classList.contains("remove-machine-btn")) {
+    const entry = state.machines[index];
+    if (!entry) return;
+    const confirmed = confirm(`Delete machine "${entry.machine.name}" (${entry.machine.plc.ip})? This cannot be undone.`);
+    if (!confirmed) return;
+
     state.machines.splice(index, 1);
     if (state.editingIndex === index) state.editingIndex = null;
     else if (state.editingIndex !== null && state.editingIndex > index) state.editingIndex -= 1;
@@ -402,8 +431,12 @@ savedMachinesEl.addEventListener("click", (event) => {
     return;
   }
 
-  if (target.classList.contains("machine-edit-target")) {
-    loadMachineForEditing(index);
+  if (target.classList.contains("edit-machine-btn")) {
+    if (state.editingIndex === index) {
+      exitEdit();
+    } else {
+      loadMachineForEditing(index);
+    }
   }
 });
 
