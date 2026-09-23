@@ -1,16 +1,5 @@
 # Universal Machine Data Platform — Project Guide
 
-## Repository
-
-Primary repository: kitnotkid/Dash_AIO
-Browser editor: vscode.dev/github/kitnotkid/Dash_AIO
-
-Note: this is a NEW repository / new codebase. The existing PLC collector, dashboard,
-and any linked template/zip in earlier drafts of this guide are DESIGN REFERENCES only
-— proven patterns to learn from, not code to extend or a schema to be bound by.
-
----
-
 ## 1. Objective
 
 Build a universal machine data acquisition and analytics platform that works across
